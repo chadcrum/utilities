@@ -253,12 +253,6 @@ jobs:
             --expect-contains "DCM_ACM_CLUSTER_SP_URL" "ACM cluster SP URL env var" \
             --expect-contains "DCM_NATS_URL" "NATS URL env var"
 
-          run_case "--help contains auth flags" \
-            --expect-exit "--help" 0 \
-            --expect-contains "--auth-enabled" "auth-enabled flag" \
-            --expect-contains "--keycloak-url" "keycloak-url flag" \
-            --expect-contains "DCM_KEYCLOAK_URL" "keycloak URL env var"
-
           # --- Unknown flag handling --------------------------------------------
 
           run_case "unknown flag is rejected" \

@@ -50,7 +50,7 @@ When a non-main version is specified, `--control-plane-branch` is auto-derived t
 
 **Cluster authentication:** When any provider is enabled, the script resolves cluster access in priority order: explicit `--kubeconfig`, existing `oc`/`kubectl` session, or `oc login` via `--cluster-api` + `--cluster-password`.
 
-**Control-plane authentication:** Pass `--auth-enabled` (or set `AUTH_DISABLED=false`) to start Keycloak and enable JWT validation. Use the same flag on `--tear-down` when tearing down an auth-enabled stack. `tests/run-e2e.sh` accepts `--auth-enabled` and `--keycloak-url` for Jenkins compatibility.
+**Control-plane authentication:** Pass `--auth-enabled` (or set `AUTH_DISABLED=false`) to start Keycloak and enable JWT validation. Use the same flag on `--tear-down` when tearing down an auth-enabled stack. The E2E suite currently supports unauthenticated test runs only.
 
 Run `./scripts/deploy-dcm.sh --help` for all flags and environment variable overrides.
 

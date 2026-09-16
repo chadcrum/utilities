@@ -623,6 +623,30 @@ env_or_default() {
     fi
 }
 
+resolve_db_password() {
+    local password_var
+    local resolved_password=""
+    local explicit_password=""
+
+    for password_var in POSTGRES_PASSWORD DB_PASS DB_PASSWORD; do
+        if [[ -n "${!password_var:-}" ]]; then
+            if [[ -z "${explicit_password}" ]]; then
+                explicit_password="${!password_var}"
+                resolved_password="${password_var}=${!password_var}"
+            elif [[ "${!password_var}" != "${explicit_password}" ]]; then
+                err "Conflicting database passwords supplied via ${resolved_password%%=*} and ${password_var}"
+                return 1
+            fi
+        fi
+    done
+
+    if [[ -z "${explicit_password}" ]]; then
+        explicit_password="adminpass"
+    fi
+
+    printf '%s\n' "${explicit_password}"
+}
+
 upsert_deploy_env_var() {
     local deploy_dir="$1"
     local key="$2"
@@ -645,6 +669,7 @@ ensure_deploy_env() {
     local env_file="${deploy_dir}/deploy/.env"
     local env_example="${deploy_dir}/deploy/.env.example"
     local var
+    local db_password
 
     if [[ ! -f "${env_file}" ]]; then
         if [[ ! -f "${env_example}" ]]; then
@@ -655,11 +680,12 @@ ensure_deploy_env() {
         info "Created ${env_file} from .env.example"
     fi
 
+    db_password="$(resolve_db_password)" || return 1
     upsert_deploy_env_var "${deploy_dir}" "POSTGRES_USER" "$(env_or_default POSTGRES_USER admin)"
-    upsert_deploy_env_var "${deploy_dir}" "POSTGRES_PASSWORD" "$(env_or_default POSTGRES_PASSWORD adminpass)"
+    upsert_deploy_env_var "${deploy_dir}" "POSTGRES_PASSWORD" "${db_password}"
     upsert_deploy_env_var "${deploy_dir}" "DB_USER" "$(env_or_default DB_USER admin)"
-    upsert_deploy_env_var "${deploy_dir}" "DB_PASS" "$(env_or_default DB_PASS adminpass)"
-    upsert_deploy_env_var "${deploy_dir}" "DB_PASSWORD" "$(env_or_default DB_PASSWORD adminpass)"
+    upsert_deploy_env_var "${deploy_dir}" "DB_PASS" "${db_password}"
+    upsert_deploy_env_var "${deploy_dir}" "DB_PASSWORD" "${db_password}"
 
     if [[ "${AUTH_ENABLED}" == true ]]; then
         upsert_deploy_env_var "${deploy_dir}" "KEYCLOAK_ADMIN" "$(env_or_default KEYCLOAK_ADMIN admin)"
@@ -866,6 +892,15 @@ AUTH_ENABLED=false
 if [[ "${AUTH_ENABLED_EXPLICIT}" == true ]] || [[ "${AUTH_DISABLED:-}" == "false" ]]; then
     AUTH_ENABLED=true
 fi
+
+# Read the existing deployment configuration for standalone inspection and teardown.
+# Do not source it: deploy/.env contains values that should not be executed as shell code.
+if [[ "${RUNNING_VERSIONS}" == true || "${TEAR_DOWN}" == true ]] &&
+    [[ -f "${CONTROL_PLANE_TMP_DIR}/deploy/.env" ]] &&
+    grep -Eq '^AUTH_DISABLED[[:space:]]*=[[:space:]]*false[[:space:]]*$' "${CONTROL_PLANE_TMP_DIR}/deploy/.env"; then
+    AUTH_ENABLED=true
+fi
+
 if [[ "${AUTH_ENABLED}" == true ]]; then
     COMPOSE_PROFILES+=("--profile" "auth")
 fi
@@ -875,9 +910,6 @@ fi
 if [[ "${RUNNING_VERSIONS}" == true ]]; then
     check_required_tools podman podman-compose curl jq || exit 1
     ensure_podman_running || exit 1
-    if [[ -d "${CONTROL_PLANE_TMP_DIR}/deploy" ]]; then
-        ensure_deploy_env "${CONTROL_PLANE_TMP_DIR}" || exit 1
-    fi
     get_running_versions "${CONTROL_PLANE_TMP_DIR}/deploy/compose.yaml" ${COMPOSE_EXTRA_FILE_ARGS[@]+"${COMPOSE_EXTRA_FILE_ARGS[@]}"} ${COMPOSE_PROFILES[@]+"${COMPOSE_PROFILES[@]}"} || exit 1
     exit 0
 fi
