@@ -26,6 +26,13 @@ resolve_networks() {
 	fi
 }
 
+networks_to_array() {
+	NETWORKS_ARR=()
+	if [[ -n "${NETWORKS}" ]]; then
+		read -r -a NETWORKS_ARR <<< "${NETWORKS}"
+	fi
+}
+
 network_on_engine() {
 	local engine="$1"
 	local network="$2"
@@ -41,18 +48,20 @@ pick_engine() {
 	local candidate network
 
 	if [[ -n "${CONTAINER_ENGINE:-}" ]]; then
-		if command -v "${CONTAINER_ENGINE}" >/dev/null 2>&1; then
-			return 0
+		if ! command -v "${CONTAINER_ENGINE}" >/dev/null 2>&1; then
+			echo "Error: CONTAINER_ENGINE=${CONTAINER_ENGINE} not found" >&2
+			return 1
 		fi
-		echo "Error: CONTAINER_ENGINE=${CONTAINER_ENGINE} not found" >&2
-		return 1
+		# Honor an explicit runtime even when networks are already gone (post-compose remove).
+		return 0
 	fi
 
+	networks_to_array
 	for candidate in podman docker; do
 		if ! command -v "${candidate}" >/dev/null 2>&1; then
 			continue
 		fi
-		for network in ${NETWORKS}; do
+		for network in "${NETWORKS_ARR[@]}"; do
 			if network_on_engine "${candidate}" "${network}"; then
 				CONTAINER_ENGINE="${candidate}"
 				return 0
@@ -71,8 +80,9 @@ pick_engine_optional() {
 cmd_disconnect() {
 	resolve_networks
 	pick_engine || exit 1
+	networks_to_array
 
-	for network in ${NETWORKS}; do
+	for network in "${NETWORKS_ARR[@]}"; do
 		if [[ "${CONTAINER_ENGINE}" == podman ]]; then
 			if ! podman network exists "${network}" 2>/dev/null; then
 				continue
@@ -100,8 +110,9 @@ cmd_remove() {
 	if ! pick_engine_optional; then
 		exit 0
 	fi
+	networks_to_array
 
-	for network in ${NETWORKS}; do
+	for network in "${NETWORKS_ARR[@]}"; do
 		if [[ "${CONTAINER_ENGINE}" == podman ]]; then
 			if podman network exists "${network}" 2>/dev/null; then
 				echo "Removing network ${network}"
