@@ -897,7 +897,7 @@ fi
 # Do not source it: deploy/.env contains values that should not be executed as shell code.
 if [[ "${RUNNING_VERSIONS}" == true || "${TEAR_DOWN}" == true ]] &&
     [[ -f "${CONTROL_PLANE_TMP_DIR}/deploy/.env" ]] &&
-    grep -Eq '^AUTH_DISABLED[[:space:]]*=[[:space:]]*false[[:space:]]*$' "${CONTROL_PLANE_TMP_DIR}/deploy/.env"; then
+    grep -Eq "^AUTH_DISABLED[[:space:]]*=[[:space:]]*(false|\"false\"|'false')[[:space:]]*$" "${CONTROL_PLANE_TMP_DIR}/deploy/.env"; then
     AUTH_ENABLED=true
 fi
 

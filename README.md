@@ -83,7 +83,7 @@ Both deploy mode and `--running-versions` produce a `dcm-versions.json` mapping 
 ./scripts/deploy-dcm.sh --auth-enabled
 
 # 10. Tear down when done
-./scripts/deploy-dcm.sh --tear-down
+./scripts/deploy-dcm.sh --auth-enabled --tear-down
 ```
 
 Run `./scripts/deploy-dcm.sh --help` for all flags and environment variable overrides.
